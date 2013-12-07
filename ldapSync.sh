@@ -2,10 +2,10 @@
 
 #--------------------------------------------
 #
-#            	ldapSync
+#                ldapSync
 #
-# Synchronize OD Group to LDAP GroupOfNames
-#				(One way)
+#  Synchronize OD Group to LDAP GroupOfNames
+#				 (One way)
 #
 #	   fork d'un script de Yoann Gini
 #      (Version 0.1 -- Dec. 15, 2010)
@@ -15,11 +15,13 @@
 #           Soumis à la licence 
 #       Creative Commons 4.0 BY NC SA
 #
-#          http://goo.gl/lriKvn
+#          http://goo.gl/9Jgf7u
+#              Yvan Godard 
+#          godardyvan@gmail.com
 #
 #--------------------------------------------
 
-version="ldapSync v0.2"
+version="ldapSync v0.2 - http://goo.gl/9Jgf7u - godardyvan@gmail.com"
 help="no"
 
 ldapServer="ldap://127.0.0.1"
@@ -33,7 +35,8 @@ EMAIL_REPORT="nomail"
 EMAIL_LEVEL=0
 LOG="/var/log/ldapSync.log"
 LOG_ACTIVE=0
-LOG_TEMP=$(mktemp /tmp/ldap2mailman_log.XXXXX)
+LOG_TEMP=$(mktemp /tmp/ldapSync_log.XXXXX)
+ERROR_CODE_MODIFY=0
 
 help () {
 	echo -e "$version\n"
@@ -51,7 +54,7 @@ help () {
 	echo -e "\t-g <reltaive DN of LDAP GroupOfNames>:   the LDAP GroupOfNames to update"
 	echo -e "\t-G <OD Groupname>:                       the OD group used as source"
 	echo -e "\t-s <LDAP Server>:                        the LDAP server URL [$ldapServer]"
-	echo -e "\t-S <DSCL Search Path>:          		    the DSCL Search path for OD Group [$dsclSearchPath]"
+	echo -e "\t-S <DSCL Search Path>:                   the DSCL Search path for OD Group [$dsclSearchPath]"
 	echo -e "\t-e <Option rapport email> :              settings for sending a report by email: [$EMAIL_REPORT] (i.e.: onerror|forcemail|nomail)"
 	echo -e "\t-E <Adresse email> :                     valid addresss to send the email report (parameter is required if -e forcemail ou -e onerror)"
 	echo -e "\t-j <Fichier Log> :                       enables logging instead of standard output. Argument specify the full path to the log file [$LOG] or 'default' for $LOG"
@@ -59,6 +62,7 @@ help () {
 }
 
 error () {
+	rm -rf $tmpFolder
 	echo -e "\n"${version}
 	echo -e "*** Error:"
 	echo -e "\t"${1}
@@ -66,13 +70,15 @@ error () {
 }
 
 alldone () {
+	[ $1 -ne 0 ] && echo -e "\n**** End of process with ERROR(s) ****\n" 
+	[ $1 -eq 0 ] && echo -e "\n**** End of process OK : $0 ****\n"
 	exec 1>&6 6>&-
 	# Journalisation si besoin
 	[ $LOG_ACTIVE -eq 1 ] && cat $LOG_TEMP >> $LOG
 	# Renvoi du journal courant vers la sortie standard
 	[ $LOG_ACTIVE -ne 1 ] && cat $LOG_TEMP
-	[ $EMAIL_LEVEL -ne 0 ] && [ $1 -ne 0 ] && cat $LOG_TEMP | mail -s "[ERROR : ldapSync.sh] $ldapServer, group $dsclGroupName -> $ldapGroupDN,$ldapDN" ${EMAIL_ADRESSE}
-	[ $EMAIL_LEVEL -eq 2 ] && [ $1 -eq 0 ] && cat $LOG_TEMP | mail -s "[OK : ldapSync.sh] $ldapServer, group $dsclGroupName -> $ldapGroupDN,$ldapDN" ${EMAIL_ADRESSE}
+	[ $EMAIL_LEVEL -ne 0 ] && [ $1 -ne 0 ] && cat $LOG_TEMP | mail -s "[ERROR : ldapSync.sh] OD Group $dsclGroupName to $ldapGroupDN,$ldapDN" ${EMAIL_ADRESSE}
+	[ $EMAIL_LEVEL -eq 2 ] && [ $1 -eq 0 ] && cat $LOG_TEMP | mail -s "[OK : ldapSync.sh] OD Group $dsclGroupName to $ldapGroupDN,$ldapDN" ${EMAIL_ADRESSE}
 	rm $LOG_TEMP
 	exit ${1}
 }
@@ -135,11 +141,7 @@ exec 6>&1
 exec >> $LOG_TEMP
 
 # Ouverture du log temporaire
-echo ""
-echo "****************************** `date` ******************************"
-echo ""
-echo "$0 lancé pour la liste $LISTNAME" 
-echo "(groupe LDAP $LDAPGROUP,$DNBASE)"
+echo -e "\n****************************** `date` ******************************\n\n$0 for $dsclGroupName to $ldapGroupDN,$ldapDN\n"
 
 # Test du paramètre d'envoi d'email et vérification de la cohérence de l'adresse email
 if [[ ${EMAIL_REPORT} = "forcemail" ]]
@@ -147,15 +149,13 @@ if [[ ${EMAIL_REPORT} = "forcemail" ]]
 	EMAIL_LEVEL=2
 	if [[ -z $EMAIL_ADRESSE ]]
 		then
-		echo ""
 		echo -e "For use with -e $EMAIL_REPORT, need an adress (-E <email@address.com>).\n\t-> The process will continue without sending email."
 		EMAIL_LEVEL=0
 	else
-		echo "${EMAIL_ADRESSE}" | grep '^[a-zA-Z0-9]*@[a-zA-Z0-9]*\.[a-zA-Z0-9]*$' > /dev/null 2>&1
+		echo "${EMAIL_ADRESSE}" | grep '^[a-zA-Z0-9._-]*@[a-zA-Z0-9._-]*\.[a-zA-Z0-9._-]*$' > /dev/null 2>&1
 		if [ $? -ne 0 ]
 			then
-			echo ""
-    		echo -e "This email address : $EMAIL_ADRESSE seems to be incorrect.\n\t-> Nous continuons le processus sans envoi d'email."
+    		echo -e "This email address : $EMAIL_ADRESSE seems to be incorrect.\n\t-> The process will continue without sending email."
     		EMAIL_LEVEL=0
     	fi
     fi
@@ -164,21 +164,18 @@ elif [[ ${EMAIL_REPORT} = "onerror" ]]
 	EMAIL_LEVEL=1
 	if [[ -z $EMAIL_ADRESSE ]]
 		then
-		echo ""
 		echo -e "For use with -e $EMAIL_REPORT, need an adress (-E <email@address.com>).\n\t-> The process will continue without sending email."
 		EMAIL_LEVEL=0
 	else
-		echo "${EMAIL_ADRESSE}" | grep '^[a-zA-Z0-9]*@[a-zA-Z0-9]*\.[a-zA-Z0-9]*$' > /dev/null 2>&1
+		echo "${EMAIL_ADRESSE}" | grep '^[a-zA-Z0-9._-]*@[a-zA-Z0-9._-]*\.[a-zA-Z0-9._-]*$' > /dev/null 2>&1
 		if [ $? -ne 0 ]
 			then	
-			echo ""
     		echo -e "This email address : $EMAIL_ADRESSE seems to be incorrect.\n\t-> The process will continue without sending email."
     		EMAIL_LEVEL=0
     	fi
     fi
 elif [[ ${EMAIL_REPORT} != "nomail" ]]
 	then
-	echo ""
 	echo -e "Invalid parameter -e $EMAIL_REPORT (must be : onerror|forcemail|nomail).\n\t-> The process will continue without sending email."
 	EMAIL_LEVEL=0
 elif [[ ${EMAIL_REPORT} = "nomail" ]]
@@ -196,7 +193,8 @@ hasChange="no"
 
 mkdir -p $tmpFolder
 
-# Vérification de la présence du groupe OD et d'utilisateurs dans le groupe 
+# Vérification de la présence du groupe OD et d'utilisateurs dans le groupe
+echo -e "\nCommand: '$dsclSearchPath read /Groups/$dsclGroupName GroupMembership'"
 dscl $dsclSearchPath read /Groups/$dsclGroupName GroupMembership > /dev/null 2>&1
 if [ $? -ne 0 ] 
 	then
@@ -211,16 +209,22 @@ if [ $? -ne 0 ]
 		fi
 		rm $MembersOfGroup
 	fi
+
+echo -e "Actual members on OD group:"
 dscl $dsclSearchPath read /Groups/$dsclGroupName GroupMembership | sed 's/GroupMembership: //g' | tr ' ' '\n' | xargs -I @ echo @ | while read line
 do
 	echo uid=$line,cn=users,$ldapDN >> $completeUsersDN
+	echo -e "\t- $line (uid=$line,cn=users,$ldapDN)"
 done
 
 # Test de la connexion au LDAP
+echo -e "\nTest to bind LDAP $ldapServer:"
 ldapsearch -LLL -x -b $ldapGroupDN,$ldapDN -H $ldapServer > /dev/null 2>&1
 if [ $? -ne 0 ]
 	then 
-	error "Error while connecting with ldap $ldapServer ($ldapGroupDN,$ldapDN).\nPlease verify LDAP connection parameters, base DN and group relative DN."
+	error "Error while connecting with LDAP $ldapServer ($ldapGroupDN,$ldapDN).\nPlease verify LDAP connection parameters, base DN and group relative DN."
+else
+	echo -e "\t-> OK"
 fi
 
 ldapsearch -LLL -x -b $ldapGroupDN,$ldapDN -H $ldapServer | grep member | awk '{print $2}' >> $actualUsersDN
@@ -245,26 +249,30 @@ then
 	hasChange="yes"
 fi
 
+# Pas de changement à effectuer
 if [[ ${hasChange} = "no" ]]
 then
     rm -rf $tmpFolder
-	echo "-> Nothing to sync !"
+	echo -e "\n***************\nNothing to sync\n***************"
     alldone 0
 fi
 
+echo -e "\n...Applying modifications on $ldapServer:"
+# Application des modifications sur la branche groupOfNames du LDAP
 ldapmodify -D $ldapAdminDN,$ldapDN  -w $ldapAdminPswd -H $ldapServer -x -f $ldapModify
+[ $? -ne 0 ] && ERROR_CODE_MODIFY=1
 
-if [ $? -ne 0 ]
-	then 
-	error "Error while modifying LDAP $ldapServer.\nPlease verify LDAP connection parameters and result."
-fi
+OLDIFS=$IFS
+IFS=$'\n'
+for MODIF_LINE in $(cat ${ldapModify})
+do
+	echo -e "\t ... ${MODIF_LINE}"
+done
+IFS=$OLDIFS
 
-if [[ ${hasChange} ! = "no" ]]
-	then 
-	for MODIF_LINE in $ldapModify
-	do
-	echo -e "\t * $MODIF_LINE *"
-	done
-fi
+# Traitement du message d'erreur
+[ $ERROR_CODE_MODIFY -ne 0 ] && error "Error while modifying LDAP $ldapServer.\nPlease verify LDAP connection parameters and result."
+
 rm -rf $tmpFolder
+
 alldone 0
