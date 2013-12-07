@@ -24,7 +24,8 @@ Installation
 
 Pour installer cet outil, depuis votre terminal, une fois positionné dans le dossier dans lequel vous souhaitez installer cet outil :
 
-	wget --no-check-certificate https://raw.github.com/yvangodard/ldapSync/master/ldapSync.sh ; sudo chmod +x ldapSync.sh
+	wget --no-check-certificate https://raw.github.com/yvangodard/ldapSync/master/ldapSync.sh ; 
+	sudo chmod +x ldapSync.sh
 
 
 License
@@ -38,7 +39,7 @@ Ce script ldapSync de [Yvan GODARD](http://www.yvangodard.me) est mis à disposi
 Limitations
 -----------
 
-THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND ANY
+THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS "AS IS" AND ANY
 EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
 DISCLAIMED. IN NO EVENT SHALL THE REGENTS AND CONTRIBUTORS BE LIABLE FOR ANY
