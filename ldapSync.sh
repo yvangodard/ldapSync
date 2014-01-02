@@ -144,7 +144,7 @@ do
                         ;; 
         e)	EMAIL_REPORT=${OPTARG}
                         ;;                             
-        E)	EMAIL_ADRESS=${OPTARG}
+        E)	EMAIL_ADDRESS=${OPTARG}
                         ;;
         j)	[ $OPTARG != "default" ] && LOG=${OPTARG}
 			LOG_ACTIVE=1
