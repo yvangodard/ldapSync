@@ -4,11 +4,11 @@ LdapSync
 Présentation
 ------------
 
-Cet outil est destiné à effectuer une syncrhonisation depuis une liste de membres d'un groupe OpenDirectory vers une branche GroupOfNames du LDAP.
+Cet outil est destiné à effectuer une syncrhonisation depuis une liste de membres d'un groupe OpenDirectory vers un groupe de type GroupOfNames du LDAP.
 Cet outil doit impérativement être lancé sur une machine enrolée à l'OpenDirectory.
 Cet outil est un fork du script [proposé ici](http://goo.gl/lVnjFw).
 
-Pour une aide complète, installer le script et lancez le :
+Pour une aide complète, installez le script et lancez :
 
     ./ldapSync.sh help
 
