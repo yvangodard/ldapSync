@@ -59,6 +59,7 @@ LDAP_MODIFY_ADD=$TMP_FOLDER/modif_add.ldif
 LDAP_MODIFY_DELETE=$TMP_FOLDER/modif_delete.ldif
 SYNC_MEMBEROF="no"
 SYNC_MEMBEROF_ATTRIBUTE="memberOf"
+ATTIBUTE_USED="no"
 
 help () {
 	echo -e "\n**********************************************************************\n"
@@ -154,6 +155,7 @@ do
 		m)	SYNC_MEMBEROF=${OPTARG}
                         ;;
         M)	SYNC_MEMBEROF_ATTRIBUTE=${OPTARG}
+			ATTIBUTE_USED="yes"
         				;;
 	esac
 done
@@ -226,9 +228,9 @@ elif [[ ${EMAIL_REPORT} = "nomail" ]]
 	EMAIL_LEVEL=0
 fi
 
-# Test ${SYNC_MEMBEROF}
+# Test ${SYNC_MEMBEROF} and ${ATTIBUTE_USED}
 [[ ${SYNC_MEMBEROF} != "yes" ]] && [[ ${SYNC_MEMBEROF} != "no" ]] && error "Trying to use '-m' option but paramter '${SYNC_MEMBEROF}' is forbiden, must be 'yes' or 'no'."
-
+[[ ${ATTIBUTE_USED} = "yes" ]] && [[ ${SYNC_MEMBEROF} = "no" ]] && error "Trying to use '-M' without '-m' option is forbiden."
 
 echo -e "\n**********************************************************************"
 echo -e "               Group OpenDirectory -> LDAP GroupOfNames"
