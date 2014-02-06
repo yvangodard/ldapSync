@@ -1,28 +1,28 @@
 #!/bin/bash
 
-#--------------------------------------------
-#
-#                ldapSync
-#
-#  Synchronize OD Group to LDAP GroupOfNames
-#				 (One way)
-#
-#	fork of a script written by Yoann Gini
-#      (VERSION 0.1 -- Dec. 15, 2010)
-# 	       http://goo.gl/lVnjFw
-#
-#	     VERSION 0.3 -- Jan. 2, 2013
-#             Licenced under
-#       Creative Commons 4.0 BY NC SA
-#
-#           http://goo.gl/9Jgf7u
-#               Yvan Godard 
-#           godardyvan@gmail.com
-#
-#--------------------------------------------
+#-------------------------------------------#
+#                ldapSync                   #
+#-------------------------------------------#
+#                                           #
+# Synchronize OD Group to LDAP GroupOfNames #
+#				 (One way)                  #
+#                                           #
+#	fork of a script written by Yoann Gini  #
+#      (VERSION 0.1 -- Dec. 15, 2010)       #
+# 	       http://goo.gl/lVnjFw             #
+#                                           #
+#	     VERSION 0.4 -- Jan. 2, 2013        #
+#             Licenced under                #
+#       Creative Commons 4.0 BY NC SA       #
+#                                           #
+#           http://goo.gl/9Jgf7u            #
+#               Yvan Godard                 #
+#           godardyvan@gmail.com            #
+#                                           #
+#-------------------------------------------#
 
 # Variables initialisation
-VERSION="ldapSync v0.3 - http://goo.gl/9Jgf7u - godardyvan@gmail.com"
+VERSION="ldapSync v0.4 - http://goo.gl/9Jgf7u - godardyvan@gmail.com"
 help="no"
 SCRIPT_DIR=$(dirname $0)
 SCRIPT_NAME=$(basename $0)
@@ -111,8 +111,8 @@ alldone () {
 	[ ${LOG_ACTIVE} -eq 1 ] && cat ${LOG_TEMP} >> ${LOG}
 	# Print current log to standard outpout
 	[ ${LOG_ACTIVE} -ne 1 ] && cat ${LOG_TEMP}
-	[ ${EMAIL_LEVEL} -ne 0 ] && [ $1 -ne 0 ] && cat ${LOG_TEMP} | mail -s "[ERROR: ${SCRIPT_NAME}] OD Group $DSCL_GROUP_NAME to $LDAP_GROUP_DN,$LDAP_DN_BASE" ${EMAIL_ADRESS}
-	[ ${EMAIL_LEVEL} -eq 2 ] && [ $1 -eq 0 ] && cat ${LOG_TEMP} | mail -s "[OK: ${SCRIPT_NAME}] OD Group $DSCL_GROUP_NAME to $LDAP_GROUP_DN,$LDAP_DN_BASE" ${EMAIL_ADRESS}
+	[ ${EMAIL_LEVEL} -ne 0 ] && [ $1 -ne 0 ] && cat ${LOG_TEMP} | mail -s "[ERROR: ${SCRIPT_NAME}] OD Group $DSCL_GROUP_NAME to $LDAP_GROUP_DN,$LDAP_DN_BASE" $EMAIL_ADDRESS
+	[ ${EMAIL_LEVEL} -eq 2 ] && [ $1 -eq 0 ] && cat ${LOG_TEMP} | mail -s "[OK: ${SCRIPT_NAME}] OD Group $DSCL_GROUP_NAME to $LDAP_GROUP_DN,$LDAP_DN_BASE" $EMAIL_ADDRESS
 	# Remove temp files/folder
 	rm -R ${LOG_TEMP}
 	rm -R ${TMP_FOLDER}
