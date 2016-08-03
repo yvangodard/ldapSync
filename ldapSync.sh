@@ -42,6 +42,7 @@ LOG_TEMP=$(mktemp /tmp/ldapSync_log.XXXXX)
 ERROR_CODE_MODIFY_1=0
 ERROR_CODE_MODIFY_2=0
 ERROR_CODE_MODIFY_3=0
+ERROR_CODE_MODIFY_4=0
 TMP_FOLDER=/tmp/ldapSync-$(uuidgen)
 COMPLETE_USER_DN=${TMP_FOLDER}/all_user_dn
 ACTUAL_USER_DN=${TMP_FOLDER}/actual_user_dn
@@ -55,11 +56,13 @@ LDIF_ATTRIBUTE_MOD_FOLDER=${TMP_FOLDER}/attribute_modif
 LDIF_ATTRIBUTE_MOD_LIST=${TMP_FOLDER}/attribute_modif_list_ldif
 LDIF_ERROR_APPLY=${TMP_FOLDER}/error_apply_ldif
 MEMBER_OF_GROUP=${TMP_FOLDER}/group_members
-LDAP_MODIFY_ADD=$TMP_FOLDER/modif_add.ldif
-LDAP_MODIFY_DELETE=$TMP_FOLDER/modif_delete.ldif
+LDAP_MODIFY_ADD=${TMP_FOLDER}/modif_add.ldif
+LDAP_MODIFY_DELETE=${TMP_FOLDER}/modif_delete.ldif
 SYNC_MEMBEROF="no"
 SYNC_MEMBEROF_ATTRIBUTE="memberOf"
 ATTIBUTE_USED="no"
+LDAP_ADD_DESCRIPTION=${TMP_FOLDER}/modif_description.ldif
+LDAP_GROUP_DESCRIPTION_FILE=${TMP_FOLDER}/LDAP_GROUP_DESCRIPTION_FILE
 
 help () {
 	echo -e "\n**********************************************************************\n"
@@ -76,22 +79,22 @@ help () {
 	echo -e "\t           [-e <email report option>] [-E <email address>] [-j <log file>]"
 	echo -e "\n\t-h:                                      prints this help then exit"
 	echo -e "\nMandatory options:"
-	echo -e "\t-d <LDAP base namespace>:                the base DN for each LDAP entry (e.g.: 'dc=server,dc=office,dc=com')"
+	echo -e "\t-d <LDAP base namespace>:                the base DN for each LDAP entry (i.e.: 'dc=server,dc=office,dc=com')"
 	echo -e "\t-p <LDAP admin password>:                the password of the LDAP administrator (asked if missing)"
 	echo -e "\t-g <relative DN of LDAP GroupOfNames>:   the LDAP GroupOfNames to update"
 	echo -e "\t-G <OD Groupname>:                       the OD group used as source"
 	echo -e "\nOptional options:"
-	echo -e "\t-a <LDAP admin UID>:                     UID of the LDAP administrator (e.g.: 'admin', default: '$LDAP_ADMIN_UID')"
-	echo -e "\t-s <LDAP Server>:                        the LDAP server URL (default: '$LDAP_SERVER')"
-	echo -e "\t-u <relative DN of user banch>:          the relative DN of the LDAP branch that contains the users (e.g.: 'cn=allusers', default: '$LDAP_DN_USER_BRANCH')"
-	echo -e "\t-S <DSCL Search Path>:                   the DSCL Search path for OD Group (default: '$DSCL_SEARCH_PATH')"
+	echo -e "\t-a <LDAP admin UID>:                     UID of the LDAP administrator (i.e.: 'admin', default: '${LDAP_ADMIN_UID}')"
+	echo -e "\t-s <LDAP Server>:                        the LDAP server URL (default: '${LDAP_SERVER}')"
+	echo -e "\t-u <relative DN of user banch>:          the relative DN of the LDAP branch that contains the users (i.e.: 'cn=allusers', default: '${LDAP_DN_USER_BRANCH}')"
+	echo -e "\t-S <DSCL Search Path>:                   the DSCL Search path for OD Group (default: '${DSCL_SEARCH_PATH}')"
 	echo -e "\t-m <sync memberOf>:                      add syncing attribute of type 'memberOf' in each user LDAP entry (must be 'yes' or 'no', default: '${SYNC_MEMBEROF}'')"
 	echo -e "\t-M <memberOf attribute>:                 attribute to use to add the distinguished name of the groups which the user is a member"
-	echo -e "\t                                         (e.g.: 'resMemberOf', default: '${SYNC_MEMBEROF_ATTRIBUTE}'), use only if '-m' is used"           
-	echo -e "\t-e <email report option>:                settings for sending a report by email, must be 'onerror', 'forcemail' or 'nomail' (default: '$EMAIL_REPORT')"
+	echo -e "\t                                         (i.e.: 'resMemberOf', default: '${SYNC_MEMBEROF_ATTRIBUTE}'), use only if '-m' is used"           
+	echo -e "\t-e <email report option>:                settings for sending a report by email, must be 'onerror', 'forcemail' or 'nomail' (default: '${EMAIL_REPORT}')"
 	echo -e "\t-E <email address>:                      email address to send the report, must be filled if '-e forcemail' or '-e onerror' options is used"
 	echo -e "\t-j <log file>:                           enables logging instead of standard output. Specify an argument for the full path to the log file"
-	echo -e "\t                                         (e.g.: '$LOG') or use 'default' ($LOG)"
+	echo -e "\t                                         (i.e.: '${LOG}') or use 'default' (${LOG})"
 	exit 0
 }
 
@@ -257,6 +260,37 @@ if [ $? -ne 0 ]
 		[[ -z $(cat ${MEMBER_OF_GROUP}) ]] && error "Command 'dscl ${DSCL_SEARCH_PATH} read /Groups/${DSCL_GROUP_NAME} GroupMembership' does not find any user in the group."
 fi
 
+# Sync Group Description
+[[ -e ${LDAP_GROUP_DESCRIPTION_FILE} ]] && rm ${LDAP_GROUP_DESCRIPTION_FILE}
+touch ${LDAP_GROUP_DESCRIPTION_FILE}
+if [[ $(dscl ${DSCL_SEARCH_PATH} read /Groups/${DSCL_GROUP_NAME} Description 2> /dev/null | wc -l) -eq 1 ]]; then
+	for item in $(dscl ${DSCL_SEARCH_PATH} read /Groups/${DSCL_GROUP_NAME} Description 2> /dev/null | perl -p -e "s/dsAttrTypeNative:Description://g" | sed '/^$/d'| sed 's/^[ \t]*//')
+	do
+		echo "${item}" >> ${LDAP_GROUP_DESCRIPTION_FILE}
+	done
+elif [[ $(dscl ${DSCL_SEARCH_PATH} read /Groups/${DSCL_GROUP_NAME} Description 2> /dev/null | wc -l) -gt 1 ]]; then
+	dscl ${DSCL_SEARCH_PATH} read /Groups/${DSCL_GROUP_NAME} Description 2> /dev/null | perl -p -e "s/dsAttrTypeNative:Description://g" | sed '/^$/d' | sed 's/^[ \t]*//' >> ${LDAP_GROUP_DESCRIPTION_FILE}
+fi
+
+LDAP_GROUP_DESCRIPTION=$(head -1 ${LDAP_GROUP_DESCRIPTION_FILE})
+
+if [[ ! -z ${LDAP_GROUP_DESCRIPTION} ]]; then
+	echo "dn: ${LDAP_GROUP_DN},${LDAP_DN_BASE}" > ${LDAP_GROUP_DESCRIPTION_FILE}
+	echo "changetype: modify" >> ${LDAP_GROUP_DESCRIPTION_FILE}
+	echo "replace: description" >> ${LDAP_GROUP_DESCRIPTION_FILE}
+	echo "description: ${LDAP_GROUP_DESCRIPTION}" >> ${LDAP_GROUP_DESCRIPTION_FILE}
+	echo -e "\n...Add description on ${LDAP_SERVER} on groupOfNames ${LDAP_GROUP_DN},${LDAP_DN_BASE}:"
+	ldapmodify -D uid=${LDAP_ADMIN_UID},${LDAP_DN_USER_BRANCH},${LDAP_DN_BASE} -w ${LDAP_ADMIN_PASS} -H ${LDAP_SERVER} -x -f ${LDAP_GROUP_DESCRIPTION_FILE}
+	[ $? -ne 0 ] && ERROR_CODE_MODIFY_4=1
+	OLDIFS=$IFS
+	IFS=$'\n'
+	for MODIF_LINE in $(cat ${LDAP_GROUP_DESCRIPTION_FILE})
+	do
+		echo -e "\t${MODIF_LINE}"
+	done
+	IFS=$OLDIFS
+fi
+
 # Export actual members of OD group
 echo -e "Actual members of OD group:"
 dscl ${DSCL_SEARCH_PATH} read /Groups/${DSCL_GROUP_NAME} GroupMembership | sed 's/GroupMembership: //g' | tr ' ' '\n' | xargs -I @ echo @ | while read LINE_UID
@@ -275,31 +309,9 @@ grep -vf ${COMPLETE_USER_DN} ${ACTUAL_USER_DN} > ${LDAP_DELETE_LIST}
 # Nothing to change
 [[ -z $(cat ${LDAP_DELETE_LIST}) ]] &&  [[ -z $(cat ${LDAP_ADD_LIST}) ]] && echo -e "-> Nothing to sync at this step!"
 
-# Delete users in groupOfNames
-if [[ ! -z $(cat ${LDAP_DELETE_LIST}) ]]
-	then
-	echo "dn: ${LDAP_GROUP_DN},${LDAP_DN_BASE}" > ${LDAP_MODIFY_DELETE}
-	echo "changetype: modify" >> ${LDAP_MODIFY_DELETE}
-	echo "delete: member" >> ${LDAP_MODIFY_DELETE}
-	for MEMBER in $(cat ${LDAP_DELETE_LIST})
-	do 
-		echo "${MEMBER}" | sed 's/uid=/member: uid=/' >> ${LDAP_MODIFY_DELETE}
-	done
-	echo -e "\n...Delete users on ${LDAP_SERVER} on groupOfNames ${LDAP_GROUP_DN},${LDAP_DN_BASE}:"
-	ldapmodify -D uid=${LDAP_ADMIN_UID},${LDAP_DN_USER_BRANCH},${LDAP_DN_BASE} -w ${LDAP_ADMIN_PASS} -H ${LDAP_SERVER} -x -f ${LDAP_MODIFY_DELETE}
-	[ $? -ne 0 ] && ERROR_CODE_MODIFY_1=1
-	OLDIFS=$IFS
-	IFS=$'\n'
-	for MODIF_LINE in $(cat ${LDAP_MODIFY_DELETE})
-	do
-		echo -e "\t${MODIF_LINE}"
-	done
-	IFS=$OLDIFS
-fi
-
+## We add users first to avoid error with empty groupOfNames
 # Add users to groupOfNames
-if [[ ! -z $(cat ${LDAP_ADD_LIST}) ]]
-	then
+if [[ ! -z $(cat ${LDAP_ADD_LIST}) ]]; then
 	echo "dn: ${LDAP_GROUP_DN},${LDAP_DN_BASE}" > ${LDAP_MODIFY_ADD}
 	echo "changetype: modify" >> ${LDAP_MODIFY_ADD}
 	echo "add: member" >> ${LDAP_MODIFY_ADD}
@@ -319,9 +331,29 @@ if [[ ! -z $(cat ${LDAP_ADD_LIST}) ]]
 	IFS=$OLDIFS
 fi
 
-# Processing error code
-if [ ${ERROR_CODE_MODIFY_1} -ne 0 ] || [ ${ERROR_CODE_MODIFY_2} -ne 0 ]
-	then
+# Delete users in groupOfNames
+if [[ ! -z $(cat ${LDAP_DELETE_LIST}) ]]; then
+	echo "dn: ${LDAP_GROUP_DN},${LDAP_DN_BASE}" > ${LDAP_MODIFY_DELETE}
+	echo "changetype: modify" >> ${LDAP_MODIFY_DELETE}
+	echo "delete: member" >> ${LDAP_MODIFY_DELETE}
+	for MEMBER in $(cat ${LDAP_DELETE_LIST})
+	do 
+		echo "${MEMBER}" | sed 's/uid=/member: uid=/' >> ${LDAP_MODIFY_DELETE}
+	done
+	echo -e "\n...Delete users on ${LDAP_SERVER} on groupOfNames ${LDAP_GROUP_DN},${LDAP_DN_BASE}:"
+	ldapmodify -D uid=${LDAP_ADMIN_UID},${LDAP_DN_USER_BRANCH},${LDAP_DN_BASE} -w ${LDAP_ADMIN_PASS} -H ${LDAP_SERVER} -x -f ${LDAP_MODIFY_DELETE}
+	[ $? -ne 0 ] && ERROR_CODE_MODIFY_1=1
+	OLDIFS=$IFS
+	IFS=$'\n'
+	for MODIF_LINE in $(cat ${LDAP_MODIFY_DELETE})
+	do
+		echo -e "\t${MODIF_LINE}"
+	done
+	IFS=$OLDIFS
+fi
+
+# Processing error code 
+if [ ${ERROR_CODE_MODIFY_1} -ne 0 ] || [ ${ERROR_CODE_MODIFY_2} -ne 0 ] || [ ${ERROR_CODE_MODIFY_4} -ne 0 ]; then
 	error "Error while applying LDAP groupOfNames modifications on ${LDAP_SERVER}.\nPlease verify LDAP connection parameters and result."
 fi
 

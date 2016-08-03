@@ -11,6 +11,11 @@ Versions
 \! Known issue / missing feature
 
 
+#### 0.5
+------------
+\+ Add Description sync between LDAP group and LDAP groupOfNames
+
+
 #### 0.4
 ------------
 \- Problem with email report
